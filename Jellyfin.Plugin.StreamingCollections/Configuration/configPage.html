@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Streaming Collections</title>
+</head>
+<body>
+<div id="StreamingCollectionsConfigPage" data-role="page" class="page type-interior pluginConfigurationPage"
+     data-require="emby-input,emby-button,emby-select,emby-checkbox">
+    <div data-role="content">
+        <div class="content-primary">
+            <form id="StreamingCollectionsConfigForm">
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="TmdbApiKey">TMDB API Key</label>
+                    <input is="emby-input" id="TmdbApiKey" name="TmdbApiKey" type="password" />
+                    <div class="fieldDescription">v3 API key from https://www.themoviedb.org/settings/api.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="Region">Region (ISO 3166-1)</label>
+                    <input is="emby-input" id="Region" name="Region" type="text" maxlength="2" />
+                    <div class="fieldDescription">Two-letter country code, e.g. US, CA, GB. Used to pick which watch providers matter.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="CacheTtlDays">Cache TTL (days)</label>
+                    <input is="emby-input" id="CacheTtlDays" name="CacheTtlDays" type="number" min="1" max="90" />
+                    <div class="fieldDescription">How long TMDB responses are cached on disk before being refreshed.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="MaxRequestsPerSecond">Max TMDB requests / sec</label>
+                    <input is="emby-input" id="MaxRequestsPerSecond" name="MaxRequestsPerSecond" type="number" min="1" max="40" />
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="TagPrefix">Tag prefix</label>
+                    <input is="emby-input" id="TagPrefix" name="TagPrefix" type="text" />
+                    <div class="fieldDescription">Tags applied to items, e.g. "streaming:" → "streaming:netflix".</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="CollectionPrefix">Collection prefix</label>
+                    <input is="emby-input" id="CollectionPrefix" name="CollectionPrefix" type="text" />
+                    <div class="fieldDescription">Optional prefix for generated collections, e.g. "Streaming: " → "Streaming: Netflix".</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="ProviderAllowlist">Provider allowlist</label>
+                    <input is="emby-input" id="ProviderAllowlist" name="ProviderAllowlist" type="text" />
+                    <div class="fieldDescription">Comma-separated provider names. Leave blank to include every provider TMDB returns.</div>
+                </div>
+
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label>
+                        <input is="emby-checkbox" id="IncludeFreeWithAds" name="IncludeFreeWithAds" type="checkbox" />
+                        <span>Include ad-supported / free offerings</span>
+                    </label>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label>
+                        <input is="emby-checkbox" id="IncludeRent" name="IncludeRent" type="checkbox" />
+                        <span>Include rentals</span>
+                    </label>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label>
+                        <input is="emby-checkbox" id="IncludeBuy" name="IncludeBuy" type="checkbox" />
+                        <span>Include purchases</span>
+                    </label>
+                </div>
+
+                <div>
+                    <button is="emby-button" type="submit" class="raised button-submit block">
+                        <span>Save</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        (function () {
+            var pluginId = 'b2c3d4e5-6f70-4a8b-9c0d-1e2f3a4b5c6d';
+
+            function loadConfig(view) {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    view.querySelector('#TmdbApiKey').value = config.TmdbApiKey || '';
+                    view.querySelector('#Region').value = config.Region || 'US';
+                    view.querySelector('#CacheTtlDays').value = config.CacheTtlDays || 7;
+                    view.querySelector('#MaxRequestsPerSecond').value = config.MaxRequestsPerSecond || 4;
+                    view.querySelector('#TagPrefix').value = config.TagPrefix || 'streaming:';
+                    view.querySelector('#CollectionPrefix').value = config.CollectionPrefix || '';
+                    view.querySelector('#ProviderAllowlist').value = config.ProviderAllowlist || '';
+                    view.querySelector('#IncludeFreeWithAds').checked = !!config.IncludeFreeWithAds;
+                    view.querySelector('#IncludeRent').checked = !!config.IncludeRent;
+                    view.querySelector('#IncludeBuy').checked = !!config.IncludeBuy;
+                    Dashboard.hideLoadingMsg();
+                });
+            }
+
+            function saveConfig(view) {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    config.TmdbApiKey = view.querySelector('#TmdbApiKey').value;
+                    config.Region = view.querySelector('#Region').value;
+                    config.CacheTtlDays = parseInt(view.querySelector('#CacheTtlDays').value, 10);
+                    config.MaxRequestsPerSecond = parseInt(view.querySelector('#MaxRequestsPerSecond').value, 10);
+                    config.TagPrefix = view.querySelector('#TagPrefix').value;
+                    config.CollectionPrefix = view.querySelector('#CollectionPrefix').value;
+                    config.ProviderAllowlist = view.querySelector('#ProviderAllowlist').value;
+                    config.IncludeFreeWithAds = view.querySelector('#IncludeFreeWithAds').checked;
+                    config.IncludeRent = view.querySelector('#IncludeRent').checked;
+                    config.IncludeBuy = view.querySelector('#IncludeBuy').checked;
+                    ApiClient.updatePluginConfiguration(pluginId, config).then(Dashboard.processPluginConfigurationUpdateResult);
+                });
+            }
+
+            document.querySelector('#StreamingCollectionsConfigPage').addEventListener('pageshow', function () {
+                loadConfig(this);
+            });
+
+            document.querySelector('#StreamingCollectionsConfigForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                saveConfig(document.querySelector('#StreamingCollectionsConfigPage'));
+                return false;
+            });
+        })();
+    </script>
+</div>
+</body>
+</html>
