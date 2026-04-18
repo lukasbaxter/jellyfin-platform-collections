@@ -7,11 +7,16 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -27,23 +32,88 @@ jobs:
       - name: Publish
         run: dotnet publish Jellyfin.Plugin.StreamingCollections/Jellyfin.Plugin.StreamingCollections.csproj -c Release -o artifacts/publish --no-build
 
-      - name: Package plugin zip
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          mkdir -p artifacts/plugin
-          cp artifacts/publish/Jellyfin.Plugin.StreamingCollections.dll artifacts/plugin/
-          cd artifacts/plugin
-          zip "../streaming-collections-${GITHUB_REF_NAME}.zip" Jellyfin.Plugin.StreamingCollections.dll
-
-      - name: Upload artifact
+      - name: Upload DLL artifact
         uses: actions/upload-artifact@v4
         with:
           name: Jellyfin.Plugin.StreamingCollections
           path: artifacts/publish/Jellyfin.Plugin.StreamingCollections.dll
 
+      - name: Package release zip
+        if: startsWith(github.ref, 'refs/tags/v')
+        id: package
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          while [ "$(echo "$VERSION" | awk -F. '{print NF}')" -lt 4 ]; do
+            VERSION="${VERSION}.0"
+          done
+          TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          mkdir -p artifacts/plugin
+          cp artifacts/publish/Jellyfin.Plugin.StreamingCollections.dll artifacts/plugin/
+
+          cat > artifacts/plugin/meta.json <<EOF
+          {
+            "category": "Metadata",
+            "changelog": "",
+            "description": "Tags movies and shows by the streaming services they're available on and builds matching Jellyfin collections. Does not move files.",
+            "guid": "b2c3d4e5-6f70-4a8b-9c0d-1e2f3a4b5c6d",
+            "name": "Streaming Collections",
+            "overview": "Organizes your library into virtual collections per streaming service via TMDB watch providers.",
+            "owner": "lukasbaxter",
+            "targetAbi": "10.10.0.0",
+            "timestamp": "${TIMESTAMP}",
+            "version": "${VERSION}"
+          }
+          EOF
+
+          ZIP_NAME="streaming-collections-${VERSION}.zip"
+          (cd artifacts/plugin && zip "../${ZIP_NAME}" meta.json Jellyfin.Plugin.StreamingCollections.dll)
+          MD5="$(md5sum "artifacts/${ZIP_NAME}" | awk '{print $1}')"
+
+          {
+            echo "version=${VERSION}"
+            echo "zip_name=${ZIP_NAME}"
+            echo "zip_path=artifacts/${ZIP_NAME}"
+            echo "md5=${MD5}"
+            echo "timestamp=${TIMESTAMP}"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Create release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/streaming-collections-*.zip
+          files: ${{ steps.package.outputs.zip_path }}
           generate_release_notes: true
+
+      - name: Update manifest.json on main
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          VERSION: ${{ steps.package.outputs.version }}
+          ZIP_NAME: ${{ steps.package.outputs.zip_name }}
+          MD5: ${{ steps.package.outputs.md5 }}
+          TIMESTAMP: ${{ steps.package.outputs.timestamp }}
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git checkout -B main origin/main
+
+          SOURCE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/${ZIP_NAME}"
+          CHANGELOG="Release ${GITHUB_REF_NAME}"
+
+          tmp="$(mktemp)"
+          jq --arg v  "$VERSION" \
+             --arg cl "$CHANGELOG" \
+             --arg abi "10.10.0.0" \
+             --arg url "$SOURCE_URL" \
+             --arg md5 "$MD5" \
+             --arg ts  "$TIMESTAMP" \
+             '.[0].versions = ([{version:$v, changelog:$cl, targetAbi:$abi, sourceUrl:$url, checksum:$md5, timestamp:$ts}] + (.[0].versions // []))' \
+             manifest.json > "$tmp"
+          mv "$tmp" manifest.json
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          git commit -m "chore: publish ${GITHUB_REF_NAME} to manifest"
+          git push origin main
