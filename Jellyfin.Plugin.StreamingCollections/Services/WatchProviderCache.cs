@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text.Json;
@@ -10,6 +9,21 @@ using MediaBrowser.Common.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.StreamingCollections.Services;
+
+public class CachedProviders
+{
+    public DateTimeOffset FetchedAt { get; set; }
+
+    public string[] Flatrate { get; set; } = Array.Empty<string>();
+
+    public string[] Free { get; set; } = Array.Empty<string>();
+
+    public string[] Ads { get; set; } = Array.Empty<string>();
+
+    public string[] Rent { get; set; } = Array.Empty<string>();
+
+    public string[] Buy { get; set; } = Array.Empty<string>();
+}
 
 public class WatchProviderCache
 {
@@ -39,7 +53,7 @@ public class WatchProviderCache
         }
     }
 
-    public async Task<IReadOnlyCollection<string>?> GetAsync(
+    public async Task<CachedProviders?> GetAsync(
         TmdbMediaType mediaType,
         int tmdbId,
         string region,
@@ -56,7 +70,7 @@ public class WatchProviderCache
         try
         {
             await using var stream = File.OpenRead(path);
-            var entry = await JsonSerializer.DeserializeAsync<CacheEntry>(stream, SerializerOptions, ct).ConfigureAwait(false);
+            var entry = await JsonSerializer.DeserializeAsync<CachedProviders>(stream, SerializerOptions, ct).ConfigureAwait(false);
             if (entry == null)
             {
                 return null;
@@ -67,7 +81,7 @@ public class WatchProviderCache
                 return null;
             }
 
-            return entry.Providers;
+            return entry;
         }
         catch (Exception ex)
         {
@@ -84,15 +98,11 @@ public class WatchProviderCache
         TmdbMediaType mediaType,
         int tmdbId,
         string region,
-        IReadOnlyCollection<string> providers,
+        CachedProviders providers,
         CancellationToken ct)
     {
         var path = PathFor(mediaType, tmdbId, region);
-        var entry = new CacheEntry
-        {
-            FetchedAt = DateTimeOffset.UtcNow,
-            Providers = providers
-        };
+        providers.FetchedAt = DateTimeOffset.UtcNow;
 
         await _ioGate.WaitAsync(ct).ConfigureAwait(false);
         try
@@ -100,7 +110,7 @@ public class WatchProviderCache
             var tmp = path + ".tmp";
             await using (var stream = File.Create(tmp))
             {
-                await JsonSerializer.SerializeAsync(stream, entry, SerializerOptions, ct).ConfigureAwait(false);
+                await JsonSerializer.SerializeAsync(stream, providers, SerializerOptions, ct).ConfigureAwait(false);
             }
             File.Move(tmp, path, overwrite: true);
         }
@@ -119,12 +129,5 @@ public class WatchProviderCache
         var kind = mediaType == TmdbMediaType.Movie ? "movie" : "tv";
         var safeRegion = string.IsNullOrWhiteSpace(region) ? "xx" : region.ToLowerInvariant();
         return Path.Combine(CacheDir, $"{kind}_{safeRegion}_{tmdbId.ToString(CultureInfo.InvariantCulture)}.json");
-    }
-
-    private class CacheEntry
-    {
-        public DateTimeOffset FetchedAt { get; set; }
-
-        public IReadOnlyCollection<string> Providers { get; set; } = Array.Empty<string>();
     }
 }

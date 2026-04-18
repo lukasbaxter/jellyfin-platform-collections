@@ -12,12 +12,22 @@ A Jellyfin plugin that tags movies and shows by the streaming services they're a
 4. Each item gets tags like `streaming:netflix`, `streaming:disney-plus`.
 5. For each provider, a Jellyfin collection (BoxSet) is created/updated so its members match everything tagged with that service.
 
-## Install
+## Install (plugin repository — recommended)
 
-1. Build the plugin (`dotnet publish -c Release`) or download a release zip.
-2. Drop the DLL into your Jellyfin `plugins/StreamingCollections_<version>/` directory.
+In Jellyfin: **Dashboard → Plugins → Repositories → `+`**, then add:
+
+- **Repository Name:** `Streaming Collections`
+- **Repository URL:** `https://raw.githubusercontent.com/lukasbaxter/jellyfin-platform-collections/main/manifest.json`
+
+Then go to **Catalog**, install **Streaming Collections**, and restart Jellyfin. Configure it under **Dashboard → Plugins → Streaming Collections**.
+
+Updates appear automatically whenever a new version is published to this repo.
+
+## Install (manual)
+
+1. Download the latest `streaming-collections-*.zip` from [Releases](../../releases).
+2. Unzip into your Jellyfin `plugins/StreamingCollections_<version>/` directory.
 3. Restart Jellyfin.
-4. Open the plugin's configuration page (Dashboard → Plugins → Streaming Collections).
 
 ## Configure
 

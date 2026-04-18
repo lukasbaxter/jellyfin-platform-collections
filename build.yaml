@@ -9,6 +9,6 @@ description: >
   watch providers) and builds matching Jellyfin collections. Caches API calls
   on disk. Does not move files.
 category: "Metadata"
-owner: "henrybaxter"
+owner: "lukasbaxter"
 artifacts:
   - "Jellyfin.Plugin.StreamingCollections.dll"

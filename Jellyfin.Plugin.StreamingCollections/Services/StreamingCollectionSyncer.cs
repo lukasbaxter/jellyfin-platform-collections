@@ -10,9 +10,7 @@ using Jellyfin.Plugin.StreamingCollections.Configuration;
 using MediaBrowser.Controller.Collections;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
-using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
-using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Entities;
 using Microsoft.Extensions.Logging;
 
@@ -74,7 +72,7 @@ public class StreamingCollectionSyncer
         {
             ct.ThrowIfCancellationRequested();
             var item = items[i];
-            progress.Report(i * 95.0 / total);
+            progress.Report(i * 90.0 / total);
 
             var tmdbIdRaw = item.GetProviderId(MetadataProvider.Tmdb);
             if (string.IsNullOrWhiteSpace(tmdbIdRaw) || !int.TryParse(tmdbIdRaw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var tmdbId))
@@ -84,20 +82,23 @@ public class StreamingCollectionSyncer
 
             var mediaType = item is Movie ? TmdbMediaType.Movie : TmdbMediaType.Tv;
 
-            var providers = await _cache.GetAsync(mediaType, tmdbId, config.Region, ttl, ct).ConfigureAwait(false);
-            if (providers == null)
+            var cached = await _cache.GetAsync(mediaType, tmdbId, config.Region, ttl, ct).ConfigureAwait(false);
+            if (cached == null)
             {
                 var response = await _tmdb.GetAsync(mediaType, tmdbId, config.TmdbApiKey, config.MaxRequestsPerSecond, ct).ConfigureAwait(false);
-                providers = ExtractProviders(response, config);
-                await _cache.SetAsync(mediaType, tmdbId, config.Region, providers, ct).ConfigureAwait(false);
+                cached = BuildCacheEntry(response, config.Region);
+                await _cache.SetAsync(mediaType, tmdbId, config.Region, cached, ct).ConfigureAwait(false);
             }
 
-            var filtered = providers
-                .Where(p => allowlist.Count == 0 || allowlist.Contains(p))
+            var slugs = SelectOfferings(cached, config);
+            var filtered = slugs
+                .Where(s => allowlist.Count == 0 || allowlist.Contains(s))
                 .ToArray();
 
             if (filtered.Length == 0)
             {
+                // Still strip stale managed tags if any were previously applied.
+                await ApplyTagsAsync(item, Array.Empty<string>(), config.TagPrefix, ct).ConfigureAwait(false);
                 continue;
             }
 
@@ -114,12 +115,16 @@ public class StreamingCollectionSyncer
             }
         }
 
-        progress.Report(95.0);
+        progress.Report(90.0);
 
+        var index = 0;
+        var providerCount = Math.Max(1, providerToItems.Count);
         foreach (var (provider, members) in providerToItems)
         {
             ct.ThrowIfCancellationRequested();
             await SyncCollectionAsync(provider, config.CollectionPrefix, members, ct).ConfigureAwait(false);
+            index++;
+            progress.Report(90.0 + (index * 10.0 / providerCount));
         }
 
         progress.Report(100.0);
@@ -141,42 +146,56 @@ public class StreamingCollectionSyncer
         return set;
     }
 
-    private static IReadOnlyCollection<string> ExtractProviders(WatchProviderResponse? response, PluginConfiguration config)
+    private static CachedProviders BuildCacheEntry(WatchProviderResponse? response, string region)
     {
-        if (response?.Results == null || !response.Results.TryGetValue(config.Region, out var regional) || regional == null)
+        var entry = new CachedProviders();
+        if (response?.Results == null || !response.Results.TryGetValue(region, out var regional) || regional == null)
+        {
+            return entry;
+        }
+
+        entry.Flatrate = ToSlugs(regional.Flatrate);
+        entry.Free = ToSlugs(regional.Free);
+        entry.Ads = ToSlugs(regional.Ads);
+        entry.Rent = ToSlugs(regional.Rent);
+        entry.Buy = ToSlugs(regional.Buy);
+        return entry;
+    }
+
+    private static string[] ToSlugs(List<Provider>? providers)
+    {
+        if (providers == null || providers.Count == 0)
         {
             return Array.Empty<string>();
         }
 
-        var slugs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        void Add(List<Provider>? providers)
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in providers)
         {
-            if (providers == null) return;
-            foreach (var p in providers)
+            if (!string.IsNullOrWhiteSpace(p.ProviderName))
             {
-                if (!string.IsNullOrWhiteSpace(p.ProviderName))
-                {
-                    slugs.Add(Slugify(p.ProviderName));
-                }
+                set.Add(Slugify(p.ProviderName));
             }
         }
+        return set.ToArray();
+    }
 
-        Add(regional.Flatrate);
+    private static IReadOnlyCollection<string> SelectOfferings(CachedProviders cached, PluginConfiguration config)
+    {
+        var slugs = new HashSet<string>(cached.Flatrate, StringComparer.OrdinalIgnoreCase);
         if (config.IncludeFreeWithAds)
         {
-            Add(regional.Free);
-            Add(regional.Ads);
+            foreach (var s in cached.Free) slugs.Add(s);
+            foreach (var s in cached.Ads) slugs.Add(s);
         }
         if (config.IncludeRent)
         {
-            Add(regional.Rent);
+            foreach (var s in cached.Rent) slugs.Add(s);
         }
         if (config.IncludeBuy)
         {
-            Add(regional.Buy);
+            foreach (var s in cached.Buy) slugs.Add(s);
         }
-
         return slugs;
     }
 
@@ -186,7 +205,9 @@ public class StreamingCollectionSyncer
         var desiredTags = providers.Select(p => prefix + p).ToArray();
         var currentTags = item.Tags ?? Array.Empty<string>();
 
-        var currentManaged = currentTags.Where(t => !string.IsNullOrEmpty(prefix) && t.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var currentManaged = currentTags
+            .Where(t => !string.IsNullOrEmpty(prefix) && t.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var desiredSet = new HashSet<string>(desiredTags, StringComparer.OrdinalIgnoreCase);
 
         if (currentManaged.SetEquals(desiredSet))
@@ -209,26 +230,38 @@ public class StreamingCollectionSyncer
             IncludeItemTypes = new[] { BaseItemKind.BoxSet },
             Name = displayName,
             Recursive = true
-        }).FirstOrDefault();
+        }).OfType<BoxSet>().FirstOrDefault();
 
-        var memberIds = members.Select(m => m.Id).Distinct().ToArray();
+        var desiredIds = members.Select(m => m.Id).Distinct().ToHashSet();
 
         if (existing == null)
         {
             await _collectionManager.CreateCollectionAsync(new CollectionCreationOptions
             {
                 Name = displayName,
-                ItemIdList = memberIds.Select(id => id.ToString("N")).ToArray(),
+                ItemIdList = desiredIds.Select(id => id.ToString("N")).ToArray(),
                 IsLocked = false
             }).ConfigureAwait(false);
+            _log.LogInformation("Created collection '{Name}' with {Count} members", displayName, desiredIds.Count);
             return;
         }
 
-        var currentMemberIds = existing.GetChildren(null, true).Select(i => i.Id).ToHashSet();
-        var toAdd = memberIds.Where(id => !currentMemberIds.Contains(id)).ToArray();
+        var currentIds = existing.GetLinkedChildren().Select(i => i.Id).ToHashSet();
+        var toAdd = desiredIds.Where(id => !currentIds.Contains(id)).ToArray();
+        var toRemove = currentIds.Where(id => !desiredIds.Contains(id)).ToArray();
+
         if (toAdd.Length > 0)
         {
             await _collectionManager.AddToCollectionAsync(existing.Id, toAdd).ConfigureAwait(false);
+        }
+        if (toRemove.Length > 0)
+        {
+            await _collectionManager.RemoveFromCollectionAsync(existing.Id, toRemove).ConfigureAwait(false);
+        }
+
+        if (toAdd.Length > 0 || toRemove.Length > 0)
+        {
+            _log.LogInformation("Updated collection '{Name}': +{Added} -{Removed}", displayName, toAdd.Length, toRemove.Length);
         }
     }
 
