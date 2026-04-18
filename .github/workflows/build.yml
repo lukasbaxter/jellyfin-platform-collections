@@ -61,7 +61,7 @@ jobs:
             "name": "Streaming Collections",
             "overview": "Organizes your library into virtual collections per streaming service via TMDB watch providers.",
             "owner": "lukasbaxter",
-            "targetAbi": "10.10.0.0",
+            "targetAbi": "10.11.0.0",
             "timestamp": "${TIMESTAMP}",
             "version": "${VERSION}"
           }
@@ -104,7 +104,7 @@ jobs:
           tmp="$(mktemp)"
           jq --arg v  "$VERSION" \
              --arg cl "$CHANGELOG" \
-             --arg abi "10.10.0.0" \
+             --arg abi "10.11.0.0" \
              --arg url "$SOURCE_URL" \
              --arg md5 "$MD5" \
              --arg ts  "$TIMESTAMP" \
