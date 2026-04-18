@@ -1,0 +1,49 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore Jellyfin.Plugin.StreamingCollections/Jellyfin.Plugin.StreamingCollections.csproj
+
+      - name: Build
+        run: dotnet build Jellyfin.Plugin.StreamingCollections/Jellyfin.Plugin.StreamingCollections.csproj -c Release --no-restore
+
+      - name: Publish
+        run: dotnet publish Jellyfin.Plugin.StreamingCollections/Jellyfin.Plugin.StreamingCollections.csproj -c Release -o artifacts/publish --no-build
+
+      - name: Package plugin zip
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          mkdir -p artifacts/plugin
+          cp artifacts/publish/Jellyfin.Plugin.StreamingCollections.dll artifacts/plugin/
+          cd artifacts/plugin
+          zip "../streaming-collections-${GITHUB_REF_NAME}.zip" Jellyfin.Plugin.StreamingCollections.dll
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Jellyfin.Plugin.StreamingCollections
+          path: artifacts/publish/Jellyfin.Plugin.StreamingCollections.dll
+
+      - name: Create release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/streaming-collections-*.zip
+          generate_release_notes: true

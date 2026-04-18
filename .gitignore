@@ -1,0 +1,18 @@
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+artifacts/
+dist/
+*.zip
+*.nupkg
+
+# memory (local; not part of repo)
+memory/
+MEMORY.md
