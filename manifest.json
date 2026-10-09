@@ -9,35 +9,11 @@
     "imageUrl": "",
     "versions": [
       {
-        "version": "1.0.0.0",
-        "changelog": "Release v1.0.0",
-        "targetAbi": "10.10.0.0",
-        "sourceUrl": "https://github.com/lukasbaxter/jellyfin-platform-collections/releases/download/v1.0.0/streaming-collections-1.0.0.0.zip",
-        "checksum": "d678be9fd8a3819fafb6cdee74285946",
-        "timestamp": "2026-10-09T00:17:25Z"
-      },
-      {
         "version": "1.1.0.0",
         "changelog": "Release v1.1.0",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/lukasbaxter/jellyfin-platform-collections/releases/download/v1.1.0/streaming-collections-1.1.0.0.zip",
         "checksum": "85ebf772e52aeab217e1643d35ba274c",
-        "timestamp": "2026-10-09T00:17:22Z"
-      },
-      {
-        "version": "1.0.1.0",
-        "changelog": "Release v1.0.1",
-        "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/lukasbaxter/jellyfin-platform-collections/releases/download/v1.0.1/streaming-collections-1.0.1.0.zip",
-        "checksum": "2d6916b354cbb7b1bcc69a1a60511617",
-        "timestamp": "2026-10-09T00:17:20Z"
-      },
-      {
-        "version": "1.1.0.0",
-        "changelog": "Release v1.1.0",
-        "targetAbi": "10.11.0.0",
-        "sourceUrl": "https://github.com/lukasbaxter/jellyfin-platform-collections/releases/download/v1.1.0/streaming-collections-1.1.0.0.zip",
-        "checksum": "7145762dda5c70f548c648717d121fca",
         "timestamp": "2026-09-27T04:05:56Z"
       },
       {
@@ -45,7 +21,7 @@
         "changelog": "Jellyfin 12 (net10.0, ABI 12.0.0.0)",
         "targetAbi": "12.0.0.0",
         "sourceUrl": "https://github.com/lukasbaxter/jellyfin-platform-collections/releases/download/v1.1.0/streaming-collections-1.1.0.0.zip",
-        "checksum": "c493160068f80ea0bf84f5afcb53796a",
+        "checksum": "85ebf772e52aeab217e1643d35ba274c",
         "timestamp": "2026-09-27T04:05:26Z"
       },
       {
@@ -53,7 +29,7 @@
         "changelog": "Release v1.0.1",
         "targetAbi": "10.11.0.0",
         "sourceUrl": "https://github.com/lukasbaxter/jellyfin-platform-collections/releases/download/v1.0.1/streaming-collections-1.0.1.0.zip",
-        "checksum": "375f73e0a6af51850c7a7cd100821d76",
+        "checksum": "2d6916b354cbb7b1bcc69a1a60511617",
         "timestamp": "2026-04-18T20:47:05Z"
       },
       {
@@ -61,7 +37,7 @@
         "changelog": "Release v1.0.0",
         "targetAbi": "10.10.0.0",
         "sourceUrl": "https://github.com/lukasbaxter/jellyfin-platform-collections/releases/download/v1.0.0/streaming-collections-1.0.0.0.zip",
-        "checksum": "c279c0a55c2b9d137b12d2b97bd2e3d2",
+        "checksum": "d678be9fd8a3819fafb6cdee74285946",
         "timestamp": "2026-04-18T20:33:36Z"
       }
     ]
