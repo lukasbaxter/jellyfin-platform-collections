@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.1.0.0",
+        "changelog": "Release v1.1.0",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/lukasbaxter/jellyfin-platform-collections/releases/download/v1.1.0/streaming-collections-1.1.0.0.zip",
+        "checksum": "85ebf772e52aeab217e1643d35ba274c",
+        "timestamp": "2026-10-09T00:17:22Z"
+      },
+      {
         "version": "1.0.1.0",
         "changelog": "Release v1.0.1",
         "targetAbi": "10.11.0.0",
